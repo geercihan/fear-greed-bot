@@ -78,5 +78,5 @@ def main():
     else:
         print("✅ No change in sentiment – no message sent.")
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
