@@ -26,5 +26,6 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_IDS: ${{ secrets.CHAT_IDS }}
+          API_KEY: ${{ secrets.API_KEY }}
         run: |
-          python check_fng.py
+          python check_fng.py 
