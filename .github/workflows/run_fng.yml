@@ -2,11 +2,11 @@ name: Run Fear & Greed Bot
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
-  workflow_dispatch:        # Allows manual run from GitHub UI
+    - cron: '*/15 * * * *'  # Run every 15 minutes
+  workflow_dispatch:        # Allow manual trigger from GitHub UI
 
 jobs:
-  run:
+  run-bot:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
         run: |
           pip install requests pytz
 
-      - name: Run the bot script
+      - name: Run script
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_IDS: ${{ secrets.CHAT_IDS }}
