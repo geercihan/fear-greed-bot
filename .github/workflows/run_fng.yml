@@ -3,7 +3,7 @@ name: Run Fear & Greed Bot
 on:
   schedule:
     - cron: '*/15 * * * *'  # Every 15 minutes
-  workflow_dispatch:
+  workflow_dispatch:        # Allows manual run from GitHub UI
 
 jobs:
   run:
