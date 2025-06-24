@@ -1,68 +1,75 @@
 import requests
 from datetime import datetime
 import os
+import json
 
 # Load environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_IDS = os.getenv("CHAT_IDS", "").split(",")
+CHAT_IDS = os.getenv("CHAT_IDS", "")
 
 API_URL = "https://api.alternative.me/fng/"
 STATE_FILE = "last_state.txt"
 
-def get_sentiment_color(value: int) -> str:
-    """Classify index value into color and label."""
+def get_sentiment_color(value):
+    value = int(value)
     if value >= 75:
-        return "🟢 Extreme Greed (Light Green)"
-    elif value >= 51:
+        return "🟣 Extreme Greed (Purple)"
+    elif value >= 54:
         return "🟢 Greed (Green)"
-    elif value == 50:
+    elif value >= 50:
         return "🟡 Neutral (Yellow)"
     elif value >= 25:
         return "🟠 Fear (Orange)"
     else:
         return "🔴 Extreme Fear (Red)"
 
-def load_last_state() -> str | None:
-    """Load the last recorded state from file."""
-    if not os.path.exists(STATE_FILE):
-        return None
-    with open(STATE_FILE, "r") as f:
-        return f.read().strip()
-
-def save_current_state(state: str):
-    """Save the current state to file."""
-    with open(STATE_FILE, "w") as f:
-        f.write(state)
-
-def send_telegram_message(message: str):
-    """Send a message to all configured Telegram chat IDs."""
-    for chat_id in CHAT_IDS:
-        payload = {
-            "chat_id": chat_id.strip(),
-            "text": message,
-            "parse_mode": "Markdown"
-        }
-        response = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            data=payload
-        )
-        if response.status_code != 200:
-            print(f"Failed to send message to {chat_id}")
-
-def main():
+def get_fng_data():
     try:
         response = requests.get(API_URL)
         response.raise_for_status()
         data = response.json()["data"][0]
+        return {
+            "value": data["value"],
+            "classification": data["value_classification"]
+        }
     except Exception as e:
-        print("❌ Error fetching API data:", e)
+        print(f"❌ Error fetching FNG data: {e}")
+        return None
+
+def send_telegram_message(message):
+    for chat_id in CHAT_IDS.split(","):
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": chat_id.strip(),
+            "text": message
+        }
+        try:
+            response = requests.post(url, json=payload)
+            if not response.ok:
+                print(f"❌ Failed to send message to {chat_id}: {response.text}")
+        except Exception as e:
+            print(f"❌ Telegram error for {chat_id}: {e}")
+
+def load_last_state():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, "r") as f:
+            return f.read().strip()
+    return ""
+
+def save_current_state(state):
+    with open(STATE_FILE, "w") as f:
+        f.write(state)
+
+def main():
+    data = get_fng_data()
+    if not data:
         return
 
-    value = int(data["value"])
-    classification = data["value_classification"]
-    timestamp = datetime.fromtimestamp(int(data["timestamp"])).strftime('%Y-%m-%d %H:%M')
-    color_label = get_sentiment_color(value)
+    value = data["value"]
+    classification = data["classification"]
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')  # ✅ Fixed: use real time of execution
 
+    color_label = get_sentiment_color(value)
     current_state = f"{color_label} | {classification}"
     last_state = load_last_state()
 
