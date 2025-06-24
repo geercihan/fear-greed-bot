@@ -2,27 +2,27 @@ name: Run Fear & Greed Bot
 
 on:
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
-  workflow_dispatch:
+    - cron: '*/15 * * * *'  # Run every 15 minutes
+  workflow_dispatch:        # Manual trigger support
 
 jobs:
-  run:
+  run-bot:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python environment
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install required dependencies
         run: |
-          pip install requests
+          pip install requests pytz
 
-      - name: Run the bot script
+      - name: Execute bot script
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_IDS: ${{ secrets.CHAT_IDS }}
