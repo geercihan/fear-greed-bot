@@ -1,21 +1,19 @@
 import requests
-import os
 from datetime import datetime
-import json
+import os
+import pytz
 
 # Load environment variables
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-CHAT_IDS = os.getenv('CHAT_IDS')
-API_KEY = os.getenv('API_KEY')
-STATE_FILE = "last_state.json"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_IDS = os.getenv("CHAT_IDS", "").split(",")
+API_KEY = os.getenv("API_KEY")
 
-API_URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
-FNG_URL = "https://pro-api.coinmarketcap.com/v1/data/fng"
+API_URL = "https://api.alternative.me/fng/"
 
 def get_sentiment_color(value):
-    """Classify index value into sentiment and assign emoji"""
+    value = int(value)
     if value >= 75:
-        return "🤑 Extreme Greed (Dark Green)"
+        return "🟢🟢 Extreme Greed (Bright Green)"
     elif value >= 54:
         return "🟢 Greed (Green)"
     elif value >= 46:
@@ -25,58 +23,47 @@ def get_sentiment_color(value):
     else:
         return "🔴 Extreme Fear (Red)"
 
-def load_last_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, 'r') as file:
-            return file.read().strip()
-    return ""
-
-def save_current_state(state):
-    with open(STATE_FILE, 'w') as file:
-        file.write(state)
+def get_fng_data():
+    try:
+        response = requests.get(API_URL, timeout=10)
+        response.raise_for_status()
+        data = response.json()["data"][0]
+        return data["value"], data["value_classification"], data["timestamp"]
+    except Exception as e:
+        print(f"❌ Error fetching data: {e}")
+        return None, None, None
 
 def send_telegram_message(message):
-    for chat_id in CHAT_IDS.split(','):
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": chat_id.strip(),
-            "text": message,
-            "parse_mode": "HTML"
-        }
-        requests.post(url, data=payload)
+    for chat_id in CHAT_IDS:
+        try:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+            payload = {"chat_id": chat_id, "text": message}
+            requests.post(url, json=payload, timeout=10)
+        except Exception as e:
+            print(f"❌ Failed to send message to {chat_id}: {e}")
 
-def get_fng_data():
-    headers = {
-        "X-CMC_PRO_API_KEY": API_KEY
-    }
-    response = requests.get(FNG_URL, headers=headers)
-    response.raise_for_status()
-    data = response.json()["data"][0]
-    return int(data["value"]), data["value_classification"], int(data["timestamp"])
+def get_tunis_time(utc_timestamp):
+    tz = pytz.timezone("Africa/Tunis")
+    dt = datetime.fromtimestamp(int(utc_timestamp), tz)
+    return dt.strftime('%Y-%m-%d %H:%M')
 
 def main():
-    try:
-        value, classification, timestamp_raw = get_fng_data()
-        timestamp = datetime.fromtimestamp(timestamp_raw).strftime('%Y-%m-%d %H:%M')
-        sentiment = get_sentiment_color(value)
+    value, classification, timestamp = get_fng_data()
+    if not value or not classification:
+        return
 
-        current_state = f"{sentiment} | {classification}"
-        last_state = load_last_state()
+    color_label = get_sentiment_color(value)
+    local_time = get_tunis_time(timestamp)
 
-        if current_state != last_state:
-            message = (
-                "🧠 <b>Fear & Greed Index Update!</b>\n\n"
-                f"📊 <b>Value:</b> {value}\n"
-                f"🎨 <b>Sentiment:</b> {sentiment}\n"
-                f"⏰ <b>Timestamp:</b> {timestamp}"
-            )
-            send_telegram_message(message)
-            save_current_state(current_state)
-        else:
-            print("✅ No change in sentiment — no message sent.")
+    message = (
+        "🧠 Fear & Greed Index Report\n\n"
+        f"📊 Value: {value}\n"
+        f"🎨 Sentiment: {color_label}\n"
+        f"🕒 Time: {local_time}"
+    )
 
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    send_telegram_message(message)
+    print("✅ Message sent.")
 
 if __name__ == "__main__":
     main()
